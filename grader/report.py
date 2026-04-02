@@ -127,7 +127,7 @@ def _render_teams_table(
             modal_id = f"modal-{idx}"
             sql_button = (
                 f'<button class="sql-button" onclick="openModal(\'{modal_id}\')">'
-                f'<i class="fas fa-code"></i> SQL code</button>'
+                f'<i class="fas fa-code"></i> SQL&nbsp;Code</button>'
             )
             modals.append(
                 f'<div id="{modal_id}" class="modal">'
