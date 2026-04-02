@@ -69,7 +69,8 @@ IMPORTANT RULES:
 - Different column name that means the same thing = CORRECT
 - Different table alias = CORRECT
 - Different column order = CORRECT
-- Missing clause (JOIN, WHERE, GROUP BY...) = ERROR
+- Column named using Serbian but means same as english = CORRECT
+- Missing clause (JOIN, WHERE, GROUP BY...) = CAN BE AN ERROR IF NOT USED FOR OPTIMAL CASE
 - Wrong logical condition that changes the result = ERROR
 
 Project: {project_code} | Team: {team_name}
@@ -141,9 +142,7 @@ than by a human student.
 
 Signs of AI-generated SQL include, but are not limited to:
 - Overly verbose or perfectly formatted comments explaining every clause
-- Unusually clean, consistent indentation and naming conventions
 - Use of advanced or rarely-taught SQL features unlikely for a beginner
-- Boilerplate-style structure that follows a generic tutorial pattern
 - Lack of any personal style, typos, or iterative changes
 
 Team: {team_name}
@@ -310,5 +309,5 @@ def grade_team(
     team.ai_generated = detect_ai_generated(
         student_sql, team.display_name, endpoint, model
     )
-    ai_label = {True: "⚠ AI-generated", False: "✓ Human", None: "Unknown"}[team.ai_generated]
+    ai_label = {True: "⚠ AI-gen.", False: "✓", None: "Unknown"}[team.ai_generated]
     log.info(f"{team.display_name}: AI detection = {ai_label}")

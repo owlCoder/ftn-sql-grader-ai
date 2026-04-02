@@ -87,7 +87,7 @@ def _build_sheet_labels(sheet_gids: List[str]) -> Dict[str, str]:
     """
     labels: Dict[str, str] = {}
     for i, gid in enumerate(sheet_gids):
-        labels[gid] = "current gen." if i == 0 else "returning student"
+        labels[gid] = "tekuća gen." if i == 0 else "stari stud."
     return labels
 
 
@@ -123,9 +123,9 @@ def _render_teams_table(
 
         # AI-generated badge
         if team.ai_generated is True:
-            ai_html = "<span class='ai-badge-yes'>⚠ AI generisan</span>"
+            ai_html = "<span class='ai-badge-yes'>⚠&nbsp;AI&nbsp;gen.</span>"
         elif team.ai_generated is False:
-            ai_html = "<span class='ai-badge-no'>✓ Ljudski rad</span>"
+            ai_html = "<span class='ai-badge-no'>✓</span>"
         else:
             ai_html = "<span class='ai-badge-unknown'>—</span>"
 
@@ -135,7 +135,7 @@ def _render_teams_table(
             modal_id = f"modal-{idx}"
             sql_button = (
                 f'<button class="sql-button" onclick="openModal(\'{modal_id}\')">'
-                f'<i class="fas fa-code"></i> SQL&nbsp;Code</button>'
+                f'<i class="fas fa-code"></i>&nbsp;SQL&nbsp;Code</button>'
             )
             modals.append(
                 f'<div id="{modal_id}" class="modal">'
@@ -303,7 +303,7 @@ def generate_html_report(
                     <th>Score</th>
                     <th>Status</th>
                     <th>SQL files</th>
-                    <th>AI generisan</th>
+                    <th>AI</th>
                     <th>Correct</th>
                     <th>Missing / Incorrect</th>
                 </tr>
