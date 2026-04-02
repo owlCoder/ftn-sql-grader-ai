@@ -15,7 +15,7 @@ import csv
 import io
 import logging
 import re
-from typing import List
+from typing import List, Tuple
 
 import requests
 
@@ -57,11 +57,11 @@ def extract_teams_from_rows(rows: List[List[str]], sheet_gid: str) -> List[TeamR
     """
     Parse a sheet's rows to find team names and their GitHub repository links.
 
-    Scanning logic:
-      - A row containing "TIM <number>" signals the start of a new team block.
-      - The first cell in subsequent rows that starts with "http" and contains
-        "github.com" is used as that team's repository URL.
-      - Teams without any GitHub link receive score=0 immediately.
+    Handles both vertical (one team per row group) and horizontal (multiple
+    teams per row group) layouts. Teams are detected by scanning for cells
+    containing "TIM <number>" anywhere in the sheet. For each team we then
+    locate the row that contains "GitHub" in the same column and take the
+    URL from the immediate next column.
 
     Args:
         rows:       Raw rows returned by fetch_sheet_csv.
@@ -71,36 +71,63 @@ def extract_teams_from_rows(rows: List[List[str]], sheet_gid: str) -> List[TeamR
         List of TeamRepo objects, one per team found.
     """
     teams: List[TeamRepo] = []
-    current_tim: str | None = None
-    current_link: str | None = None
+    # We'll collect all (row_idx, start_col, tim_number) from TIM header rows
+    tim_headers: List[Tuple[int, int, int]] = []  # (row, col, number)
 
-    def flush() -> None:
-        """Commit the currently buffered team to the list."""
-        nonlocal current_tim, current_link
-        if current_tim is None:
-            return
+    # First pass: find all TIM headers and their column positions
+    for row_idx, row in enumerate(rows):
+        for col_idx, cell in enumerate(row):
+            cell_str = str(cell).strip()
+            # Match "TIM 01", "TIM 02 - Nemanja", "TIM 04", etc.
+            m = re.search(r"\bTIM\s+(\d+)\b", cell_str, re.IGNORECASE)
+            if m:
+                tim_num = int(m.group(1))
+                tim_headers.append((row_idx, col_idx, tim_num))
 
-        if current_link:
+    if not tim_headers:
+        log.warning(f"No TIM headers found in sheet gid={sheet_gid}")
+        return teams
+
+    # Process each team header independently
+    for header_row, start_col, tim_num in tim_headers:
+        tim_name = f"TIM {tim_num:02d}"
+        github_url = None
+
+        # Search downwards from header_row+1 for a row where cell at start_col
+        # contains "GitHub" (case-insensitive)
+        for row_idx in range(header_row + 1, len(rows)):
+            if row_idx >= len(rows):
+                break
+            cell_val = str(rows[row_idx][start_col]).strip()
+            if "github" in cell_val.lower():
+                # The URL should be in the next column (start_col + 1)
+                if start_col + 1 < len(rows[row_idx]):
+                    potential_url = rows[row_idx][start_col + 1].strip()
+                    if potential_url.startswith("http") and "github.com" in potential_url:
+                        github_url = potential_url
+                break  # Stop searching once we found the GitHub row for this team
+
+        if github_url:
             # Normalise URL: ensure it ends with .git
-            url = current_link.rstrip("/")
+            url = github_url.rstrip("/")
             if not url.endswith(".git"):
                 url += ".git"
             repo_name = url.rstrip("/")[:-4].split("/")[-1]
             teams.append(
                 TeamRepo(
-                    tim_name=current_tim,
+                    tim_name=tim_name,
                     sheet_gid=sheet_gid,
                     github_url=url,
                     repo_name=repo_name,
                     has_link=True,
                 )
             )
-            log.info(f"  {current_tim} (gid={sheet_gid}): {url}")
+            log.info(f"  {tim_name} (gid={sheet_gid}): {url}")
         else:
-            # Team with no link — give an automatic zero
+            # No GitHub link found for this team → automatic zero
             teams.append(
                 TeamRepo(
-                    tim_name=current_tim,
+                    tim_name=tim_name,
                     sheet_gid=sheet_gid,
                     github_url="",
                     has_link=False,
@@ -109,33 +136,8 @@ def extract_teams_from_rows(rows: List[List[str]], sheet_gid: str) -> List[TeamR
                     score_details="Team has no GitHub link — score 0.",
                 )
             )
-            log.warning(
-                f"  {current_tim} (gid={sheet_gid}): NO LINK → score 0"
-            )
+            log.warning(f"  {tim_name} (gid={sheet_gid}): NO LINK → score 0")
 
-        current_tim = None
-        current_link = None
-
-    for row in rows:
-        row_text = " ".join(str(c) for c in row)
-
-        # Detect "TIM <number>" anywhere in the row
-        tim_match = re.search(r"\bTIM\s+(\d+)\b", row_text, re.IGNORECASE)
-        if tim_match:
-            flush()
-            current_tim = f"TIM {int(tim_match.group(1)):02d}"
-            continue
-
-        # While we have an active team and haven't found its link yet,
-        # scan every cell for a GitHub URL
-        if current_tim and current_link is None:
-            for cell in row:
-                cell_s = str(cell).strip()
-                if "github.com" in cell_s.lower() and cell_s.startswith("http"):
-                    current_link = cell_s
-                    break
-
-    flush()  # Commit the last team
     return teams
 
 
@@ -157,7 +159,6 @@ def fetch_all_teams(spreadsheet_id: str, sheet_gids: List[str]) -> List[TeamRepo
             rows = fetch_sheet_csv(spreadsheet_id, gid)
             sheet_teams = extract_teams_from_rows(rows, gid)
             all_teams.extend(sheet_teams)
-            log.info(f"Sheet gid={gid}: added {len(sheet_teams)} teams")
         except Exception as exc:
             log.error(f"Failed to load sheet gid={gid}: {exc}")
 
