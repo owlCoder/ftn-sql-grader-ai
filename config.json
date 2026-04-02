@@ -1,0 +1,9 @@
+{
+  "spreadsheet_id": "1q45G8I0KbqqLt9iGlVgJemvImWHve7fM3FDi0qfcPqY",
+  "sheet_gids": ["427514693", "387992360"],
+  "solutions_dir": "./solutions",
+  "tmp_base_dir": "./tmp",
+  "lm_studio_endpoint": "http://localhost:1234/v1/chat/completions",
+  "lm_studio_model": "qwen2.5-coder-7b-instruct",
+  "repo_name_pattern": "^odp_C(\\d{2}|[1-9]S)_tim_(\\d{2}|[1-9]S)$"
+}
