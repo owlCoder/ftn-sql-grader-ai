@@ -167,17 +167,81 @@ The model returns a JSON object with:
 
 ---
 
-## SOLID Design
+## LM Studio — Installation and Setup
 
-| Principle | How it is applied |
-|---|---|
-| **S**ingle Responsibility | Each module has one job: `sheets.py` fetches data, `repository.py` clones repos, `grader.py` calls the LLM, `report.py` renders HTML. |
-| **O**pen/Closed | New sheet formats or grading backends can be added without modifying existing modules. |
-| **L**iskov Substitution | `ListHandler` extends `logging.Handler` and is a true drop-in replacement. |
-| **I**nterface Segregation | Modules depend only on the types they actually use (`TeamRepo`, `AppConfig`). |
-| **D**ependency Inversion | `main.py` wires concrete implementations; individual modules accept parameters rather than importing globals. |
+LM Studio is a local application that allows you to run open-source LLM models on your own computer without an internet connection and without sending data to the cloud.
+
+### 1. Download and Installation
+
+1. Visit the official website: [https://lmstudio.ai](https://lmstudio.ai)
+2. Download the version for your operating system (Windows, macOS, or Linux).
+3. Run the installer and follow the steps until the installation is complete.
+
+> **System requirements:** CPU with AVX2 support; 16 GB RAM recommended for models up to 7B parameters. A GPU (NVIDIA/AMD/Apple Silicon) significantly speeds up inference.
 
 ---
+
+### 2. Downloading a Model
+
+1. Open LM Studio and go to the **Discover** tab (left sidebar, magnifying glass icon).
+2. In the search bar, type `qwen2.5-coder-7b-instruct` (recommended model for SQL grading).
+3. Click **Download** next to the desired quantization — we recommend `Q4_K_M` as a balance between speed and accuracy.
+4. Wait for the download to complete (the model is approximately ~5 GB).
+
+Alternative models that perform well for SQL tasks:
+
+| Model                          | Size (Q4_K_M) | Notes                            |
+| ------------------------------ | ------------- | -------------------------------- |
+| `qwen2.5-coder-7b-instruct`    | ~5 GB         | Recommended — optimized for code |
+| `deepseek-coder-6.7b-instruct` | ~4 GB         | Good alternative                 |
+| `codellama-7b-instruct`        | ~4 GB         | Meta model, proven for SQL       |
+
+### 3. Running the Local Server
+
+1. In LM Studio, open the **Local Server** tab (icon `<->` in the left sidebar).
+2. From the dropdown menu, select the model you downloaded.
+3. Click **Start Server**.
+4. Verify that the server is listening on `http://localhost:1234` — this is shown in the status bar.
+
+The default API endpoint used by the grader:
+
+```
+http://localhost:1234/v1/chat/completions
+```
+
+---
+
+### 4. Configuring `config.json`
+
+Make sure the following values in `config.json` match your LM Studio server:
+
+```json
+{
+  "lm_studio_endpoint": "http://localhost:1234/v1/chat/completions",
+  "lm_studio_model": "qwen2.5-coder-7b-instruct"
+}
+```
+
+> The `lm_studio_model` value must exactly match the name of the model loaded in LM Studio (visible in the header of the Local Server tab).
+
+---
+
+### 5. Testing the Server
+
+Before running the grader, you can manually test the server:
+
+```bash
+curl http://localhost:1234/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "qwen2.5-coder-7b-instruct",
+    "messages": [{"role": "user", "content": "Say hello."}],
+    "max_tokens": 50
+  }'
+```
+
+If you receive a JSON response with a `choices` field, the server is working correctly.
+
 
 ## License
 

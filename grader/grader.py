@@ -127,6 +127,89 @@ def _parse_llm_response(
     return score, details.strip(), correct, missing
 
 
+def _build_ai_detection_prompt(student_sql: str, team_name: str) -> str:
+    """
+    Construct a prompt that asks the LLM to decide whether the SQL was written
+    by an AI (e.g. ChatGPT / Copilot) rather than a human student.
+
+    Returns:
+        Formatted prompt string.
+    """
+    return f"""Analyze the following SQL code and determine whether it was likely
+written by an AI assistant (such as ChatGPT, GitHub Copilot, or similar) rather
+than by a human student.
+
+Signs of AI-generated SQL include, but are not limited to:
+- Overly verbose or perfectly formatted comments explaining every clause
+- Unusually clean, consistent indentation and naming conventions
+- Use of advanced or rarely-taught SQL features unlikely for a beginner
+- Boilerplate-style structure that follows a generic tutorial pattern
+- Lack of any personal style, typos, or iterative changes
+
+Team: {team_name}
+
+=== STUDENT SQL ===
+{student_sql}
+
+Reply ONLY in JSON format:
+{{
+  "ai_generated": true or false,
+  "confidence": "high" | "medium" | "low",
+  "reasoning": "<one sentence explanation in Serbian>"
+}}"""
+
+
+def detect_ai_generated(
+    student_sql: str,
+    team_name: str,
+    endpoint: str,
+    model: str,
+) -> Optional[bool]:
+    """
+    Ask LM Studio whether the student SQL appears to be AI-generated.
+
+    Args:
+        student_sql:  Concatenated content of all student SQL files.
+        team_name:    Human-readable team label for context.
+        endpoint:     LM Studio chat completions URL.
+        model:        Model identifier string.
+
+    Returns:
+        True if AI-generated, False if likely human-written, None on failure.
+    """
+    system_prompt = "You are an academic integrity expert. Always reply exclusively in JSON format."
+    user_prompt = _build_ai_detection_prompt(student_sql, team_name)
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        "temperature": 0.0,
+        "max_tokens": 300,
+    }
+
+    try:
+        resp = requests.post(endpoint, json=payload, timeout=120)
+        resp.raise_for_status()
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"].strip()
+        clean = re.sub(r"```json|```", "", content).strip()
+        json_match = re.search(r'\{.*"ai_generated".*\}', clean, re.DOTALL)
+        raw_json = json_match.group() if json_match else clean
+        parsed = json.loads(raw_json)
+        result = parsed.get("ai_generated")
+        if isinstance(result, bool):
+            return result
+        if isinstance(result, str):
+            return result.lower() == "true"
+        return None
+    except Exception as exc:
+        log.warning(f"AI detection failed for {team_name}: {exc}")
+        return None
+
+
 def compare_sql_with_lmstudio(
     student_sql: str,
     solution_sql: str,
@@ -185,7 +268,7 @@ def grade_team(
 
     Side effects:
         Populates team.score, team.score_details, team.correct_parts,
-        and team.missing_parts.
+        team.missing_parts, and team.ai_generated.
 
     Args:
         team:          TeamRepo that has already been cloned and had SQL files found.
@@ -222,3 +305,10 @@ def grade_team(
     team.correct_parts = correct
     team.missing_parts = missing
     log.info(f"{team.display_name}: Score = {score:.1f}%")
+
+    # Run AI-generation detection as a separate LLM call
+    team.ai_generated = detect_ai_generated(
+        student_sql, team.display_name, endpoint, model
+    )
+    ai_label = {True: "⚠ AI-generated", False: "✓ Human", None: "Unknown"}[team.ai_generated]
+    log.info(f"{team.display_name}: AI detection = {ai_label}")

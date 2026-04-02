@@ -121,6 +121,14 @@ def _render_teams_table(
         correct_html = "<br>".join(team.correct_parts) if team.correct_parts else "—"
         missing_html = "<br>".join(team.missing_parts) if team.missing_parts else "—"
 
+        # AI-generated badge
+        if team.ai_generated is True:
+            ai_html = "<span class='ai-badge-yes'>⚠ AI generisan</span>"
+        elif team.ai_generated is False:
+            ai_html = "<span class='ai-badge-no'>✓ Ljudski rad</span>"
+        else:
+            ai_html = "<span class='ai-badge-unknown'>—</span>"
+
         # SQL modal button (only if there is actual SQL content)
         sql_button = ""
         if team.sql_code_display and team.sql_code_display != "No SQL files found.":
@@ -147,6 +155,7 @@ def _render_teams_table(
             f"<td><div class='score-badge {score_cls}'>{score_text}</div></td>"
             f"<td><span class='badge {badge_cls}'>{clone_label}</span></td>"
             f"<td>{sql_button}</td>"
+            f"<td>{ai_html}</td>"
             f"<td class='correct-col'>{correct_html}</td>"
             f"<td class='missing-col'>{missing_html}</td>"
             f"</tr>"
@@ -198,6 +207,15 @@ i { margin-right: 6px; }
 .sql-button:hover { background: #d1d9f0; }
 .correct-col { background-color: #f0fdf4; }
 .missing-col { background-color: #fef2f2; }
+.ai-badge-yes { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d;
+                display: inline-block; padding: 3px 10px; border-radius: 20px;
+                font-size: 0.75rem; font-weight: bold; }
+.ai-badge-no  { background: #ecfdf5; color: #065f46; border: 1px solid #6ee7b7;
+                display: inline-block; padding: 3px 10px; border-radius: 20px;
+                font-size: 0.75rem; font-weight: bold; }
+.ai-badge-unknown { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db;
+                    display: inline-block; padding: 3px 10px; border-radius: 20px;
+                    font-size: 0.75rem; }
 /* Modal */
 .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0;
          width: 100%; height: 100%; overflow: auto;
@@ -285,6 +303,7 @@ def generate_html_report(
                     <th>Score</th>
                     <th>Status</th>
                     <th>SQL files</th>
+                    <th>AI generisan</th>
                     <th>Correct</th>
                     <th>Missing / Incorrect</th>
                 </tr>

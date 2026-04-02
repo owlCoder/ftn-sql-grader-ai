@@ -32,6 +32,8 @@ class TeamRepo:
         correct_parts:  List of correct elements identified by the LLM.
         missing_parts:  List of missing or incorrect elements identified by the LLM.
         clone_error:    stderr output captured when cloning fails.
+        ai_generated:   True if the LLM detected the SQL was likely AI-generated;
+                        False if it looks like genuine student work; None if unknown.
     """
 
     tim_name: str
@@ -50,6 +52,7 @@ class TeamRepo:
     correct_parts: List[str] = field(default_factory=list)
     missing_parts: List[str] = field(default_factory=list)
     clone_error: str = ""
+    ai_generated: Optional[bool] = None   # True/False = LLM decision; None = unknown
 
     @property
     def display_name(self) -> str:
